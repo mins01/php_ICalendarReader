@@ -22,8 +22,8 @@ foreach ($files as $file) {
 	echo 'FILENAME: '.$file."\n";
 	echo 'CALNAME: '.$icr->VCALENDAR['X-WR-CALNAME']."\n";
 	echo "-------------------\n";
-	echo "search: 2021-01-01 ~ 2021-12-31\n";
-	$rs = $icr->searchByDate('2021-01-01','2021-12-31');
+	echo "search: 2020-01-01 ~ 2020-12-31\n";
+	$rs = $icr->searchByDate('2020-01-01','2020-12-31');
 	foreach ($rs as $r) {
 		echo date('Y-m-d D / o-\WW',$r['time']).': '.$r['VEVENT']['SUMMARY']."\n";
 	}
