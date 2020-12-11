@@ -29,12 +29,26 @@ class ICalendarReader{
 	}
 	public function load($str)
 	{
-
 		$rs = $this->parse($str);
 		$this->VCALENDAR = $rs['VCALENDAR'];
 		$this->VEVENTs = $rs['VEVENTs'];
 		$this->links = $rs['links'];
-		$this->times = $rs['times'];
+		$this->times = $this->generateTimes($this->links);
+	}
+	public function clear(){
+		$this->VCALENDAR = array();
+		$this->VEVENTs = array();
+		$this->links = array();
+		$this->times = array();
+	}
+	public function append($str)
+	{
+
+		$rs = $this->parse($str);
+		$this->VCALENDAR = array_merge($this->VCALENDAR,$rs['VCALENDAR']);
+		$this->VEVENTs = array_merge($this->VEVENTs,$rs['VEVENTs']);
+		$this->links = array_merge($this->links,$rs['links']);
+		$this->times = $this->generateTimes($this->links);
 	}
 	/**
 	 * parse
@@ -55,7 +69,7 @@ class ICalendarReader{
 			$v = trim($v);
 			if(!isset($v)){continue;}
 			$t = explode(':',trim($v));
-			$val = trim($t[1]);
+			$val = str_replace(array('\\\\' , '\\;' , '\\,', '\\N', '\\n'),array('\\' , ';' , ',',"\n","\n"),trim($t[1]));
 			if($t[0]=='BEGIN'){
 				$curr_begin = $val;
 				if($val=='VEVENT'){
@@ -104,8 +118,8 @@ class ICalendarReader{
 			}
 		}
 		$this->recursiveLinks($links);
-		$times = $this->generateTimes($links);
-		return array('VCALENDAR'=>$VCALENDAR,'VEVENTs'=>$VEVENTs,'links'=>$links,'times'=>$times);
+		// $times = $this->generateTimes($links);
+		return array('VCALENDAR'=>$VCALENDAR,'VEVENTs'=>$VEVENTs,'links'=>$links);
 	}
 	/**
 	 * recursiveLinks
@@ -147,11 +161,10 @@ class ICalendarReader{
 		if($BYMONTH!=null){
 			$time = mktime($curr_G,$curr_i,$curr_s,$BYMONTH,$curr_j,$curr_Y);
 		}
-		if($BYWEEKNO!=null){
-			exit('ERROR: TODO: BYWEEKNO');
-			// TODO
+		if($BYWEEKNO!=null){ // not tested!
+			$time = strtotime($curr_Y.'W'.sprintf('%02d',$BYWEEKNO));
 		}
-		if($BYYEARDAY!=null){
+		if($BYYEARDAY!=null){ // not tested!
 			$time = mktime($curr_G,$curr_i,$curr_s,1,$BYYEARDAY,$curr_Y);
 		}
 		if($BYDAY!=null){
@@ -202,8 +215,7 @@ class ICalendarReader{
 							foreach ($BYMINUTEs as $BYMINUTE) {
 								foreach ($BYSECONDs as $BYSECOND) {
 									foreach ($BYSETPOSs as $BYSETPOS) {
-										$time = $this->calcurateRrulesByBys($currTime,$BYMONTH,$BYWEEKNO,$BYYEARDAY,$BYDAY,$BYHOUR,$BYMINUTE,$BYSECOND,$BYSETPOS);
-										$times[]=$time;
+										$times[]=$this->calcurateRrulesByBys($currTime,$BYMONTH,$BYWEEKNO,$BYYEARDAY,$BYDAY,$BYHOUR,$BYMINUTE,$BYSECOND,$BYSETPOS);
 									}
 								}
 							}
@@ -236,7 +248,7 @@ class ICalendarReader{
 		$COUNT = isset($rrules['COUNT'])?(int)$rrules['COUNT']:null;
 		$UNTIL = isset($rrules['UNTIL'])?strtitime($rrules['UNTIL']):null;
 		if($COUNT != null){
-			for($i=0,$m=$COUNT;$i<$m;$i++){
+			for($i=0,$m=($COUNT-1);$i<$m;$i++){
 				if($FREQ =='YEARLY'){
 					$currTime = strtotime("+1 year", $currTime);
 				}else if($FREQ =='MONTHLY'){
