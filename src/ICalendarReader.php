@@ -50,6 +50,33 @@ class ICalendarReader{
 		$this->links = array_merge($this->links,$rs['links']);
 		$this->times = $this->generateTimes($this->links);
 	}
+	public function decode($str){
+		return str_replace(array('\\\\' , '\\;' , '\\,', '\\N', '\\n'),array('\\' , ';' , ',',"\n","\n"),$str);
+	}
+	public function encode($str){
+		return str_replace(array('\\' , ';' , ',',"\n"),array('\\\\' , '\\;' , '\\,', '\\n'),$str);
+	}
+	public function str_split($str){
+		// $str = 'VERSION:2.0한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?한글도 잘되는가?';
+		$arr = preg_split( '//u' , $str);
+		// print_r($r);exit;
+		// echo $str;
+		// echo array_shift($arr);
+		$rstr = '';
+		$tstr = '';
+		while(($t = array_shift($arr))!==null){
+			if(strlen($tstr)+strlen($t) > 73){
+				$tstr.="\r\n";
+				// var_dump($tstr);
+				$rstr.=$tstr;
+				$tstr = ' ';
+			}
+			$tstr.=$t;
+		}
+		// var_dump($tstr);
+		$rstr.=$tstr;
+		return $rstr;
+	}
 	/**
 	 * parse
 	 * @param  string $str iCalendar contents string
@@ -69,7 +96,7 @@ class ICalendarReader{
 			$v = trim($v);
 			if(!isset($v)){continue;}
 			$t = explode(':',trim($v));
-			$val = str_replace(array('\\\\' , '\\;' , '\\,', '\\N', '\\n'),array('\\' , ';' , ',',"\n","\n"),trim($t[1]));
+			$val = $this->decode(trim($t[1]));
 			if($t[0]=='BEGIN'){
 				$curr_begin = $val;
 				if($val=='VEVENT'){
@@ -226,6 +253,7 @@ class ICalendarReader{
 		}
 		return $times;
 	}
+
 	//전체다 지원하는건 아니다.
 	private function calcurateRrules($rrules,$currTime){
 		// recur-rule-part = ( "FREQ" "=" freq )
@@ -308,5 +336,52 @@ class ICalendarReader{
 		}
 		unset($r);
 		return $res;
+	}
+	public function toObjectAll(){
+		$VCALENDAR = $this->VCALENDAR;
+		$links = $this->links;
+		return array(
+			'VCALENDAR'=>$this->VCALENDAR,
+			'links'=>$this->links
+		);
+	}
+	public function toJsonAll($flags = 0,$depth = 512){
+		return json_encode($this->toObjectAll(),$flags,$depth);
+	}
+	public function toObject(){
+		$VCALENDAR = $this->VCALENDAR;
+		$links = $this->links;
+		return array(
+			'VCALENDAR'=>$this->VCALENDAR,
+			'VEVENTs'=>$this->VEVENTs
+		);
+	}
+	public function toJson($flags = 0,$depth = 512){
+		return json_encode($this->toObject(),$flags,$depth);
+	}
+	public function toIcs(){
+		$res = array();
+		$res[] = 'BEGIN:VCALENDAR';
+		$keys_str = implode('|',array_keys($this->VCALENDAR));
+		foreach ($this->VCALENDAR as $k => $v) {
+			if(strpos($keys_str,$k.';')!==false){ continue;}
+			$res[] =$this->str_split($k.':'.$this->encode($v));
+		}
+		$keys_str = implode('|',array_keys($this->VCALENDAR));
+		foreach ($this->VEVENTs as $VEVENT) {
+			$res[] = 'BEGIN:VEVENT';
+			$keys_str = implode('|',array_keys($VEVENT));
+			foreach ($VEVENT as $k => $v) {
+				if(strpos($keys_str,$k.';')!==false){ continue;}
+				if($k =='RRULE'){
+					$res[] =$this->str_split($k.':'.$v);
+				}else{
+					$res[] =$this->str_split($k.':'.$this->encode($v));
+				}
+			}
+			$res[] = 'END:VEVENT';
+		}
+		$res[] = 'END:VCALENDAR';
+		return implode("\r\n",$res);
 	}
 }
