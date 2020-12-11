@@ -52,6 +52,8 @@ class ICalendarReader{
 		$link = null;
 		$curr_begin = '';
 		foreach ($arr as $k => $v) {
+			$v = trim($v);
+			if(!isset($v)){continue;}
 			$t = explode(':',trim($v));
 			$val = trim($t[1]);
 			if($t[0]=='BEGIN'){
@@ -113,35 +115,142 @@ class ICalendarReader{
 	private function recursiveLinks(& $links){
 		foreach ($links as & $link) {
 			if(!isset($link['rrules'])){ continue; }
+			// echo "링크\n";
+			// print_r($link);
 			$rrules = $link['rrules'];
-			$freq = $rrules['FREQ'];
-			$count = isset($rrules['COUNT'])?(int)$rrules['COUNT']:null;
-			$until = isset($rrules['UNTIL'])?strtitime($rrules['UNTIL']):null;
 			$currTime = $link['timeStart'];
-			if($count != null){
-				for($i=0,$m=$count;$i<$m;$i++){
-					switch($freq){
-						case 'YEARLY':
-							$t = strtotime("+1 year", $currTime);
-							$link['times'][]=$t;
-							$currTime = $t;
-						break;
-						case 'MONTHLY':
-							$t = strtotime("+1 month", $currTime);
-							$link['times'][]=$t;
-							$currTime = $t;
-						break;
-						case 'WEEKLY':
-							$t = strtotime("+1 week", $currTime);
-							$link['times'][]=$t;
-							$currTime = $t;
-						break;
+			$link['times'] = array_merge($link['times'],$this->calcurateRrules($rrules,$currTime));
+		}
+	}
+	private function calcurateRrulesByBys($currTime,$BYMONTH,$BYWEEKNO,$BYYEARDAY,$BYDAY,$BYHOUR,$BYMINUTE,$BYSECOND,$BYSETPOS){
+		// following order: BYMONTH, BYWEEKNO, BYYEARDAY, BYMONTHDAY, BYDAY, BYHOUR, BYMINUTE, BYSECOND and BYSETPOS; then COUNT and UNTIL are evaluated.
+		$days = array(
+			'MO' => 'Monday',
+			'TU' => 'Tuesday',
+			'WE' => 'Wednesday',
+			'TH' => 'Thursday',
+			'FR' => 'Friday',
+			'SA' => 'Saturday',
+			'SU' => 'Sunday',
+		);
+		$args = func_get_args();
+		// echo date('Y-m-d',$currTime).' : ';
+		// print_r(implode(', ',$args));
+		// echo "\n";
+		$curr_Y = date('Y',$currTime);
+		$curr_n = date('n',$currTime);
+		$curr_j = date('j',$currTime);
+		$curr_G = ($BYHOUR!=null)?$BYHOUR:date('G',$currTime);
+		$curr_i = ($BYMINUTE!=null)?$BYMINUTE:intval(date('i',$currTime),10);
+		$curr_s = ($BYSECOND!=null)?$BYSECOND:intval(date('s',$currTime),10);
+		$time = $currTime;
+		if($BYMONTH!=null){
+			$time = mktime($curr_G,$curr_i,$curr_s,$BYMONTH,$curr_j,$curr_Y);
+		}
+		if($BYWEEKNO!=null){
+			exit('ERROR: TODO: BYWEEKNO');
+			// TODO
+		}
+		if($BYYEARDAY!=null){
+			$time = mktime($curr_G,$curr_i,$curr_s,1,$BYYEARDAY,$curr_Y);
+		}
+		if($BYDAY!=null){
+			$matches = array();
+			preg_match("/(-?\d)([A-Z]{2})/",$BYDAY,$matches);
+			if(isset($matches[2])){
+				$twn = $matches[1];
+				$twd = $days[$matches[2]];
+			}else{
+				$twn = 0;
+				$twd = $days[$BYDAY];
+			}
+			if($twn==0){
+				$time = date('l', $time) !== $twd?strtotime('last '.$twd, $time):$time;
+			}else if($twn<0){
+				$time = mktime($curr_G,$curr_i,$curr_s,date('n',$time)+1,0,$curr_Y);
+				// echo 'ST BYDAY: '.date('Y-m-d D',$time)." \n";
+				$time = date('l', $time) !== $twd?strtotime('last '.$twd, $time):$time;
+				$time += 86400*7*($twn+1);
+			}else if($twn>0){
+				$time = mktime($curr_G,$curr_i,$curr_s,date('n',$time),1,$curr_Y);
+				// echo 'ST BYDAY: '.date('Y-m-d D',$time)."\n";
+				$time = date('l', $time) !== $twd?strtotime('next '.$twd, $time):$time;
+				$time += 86400*7*($twn-1);
+			}
+			// echo 'ED BYDAY: '.date('Y-m-d D',$time)."\n";
+		}
+		return $time;
+	}
+	private function calcurateRrulesByRrules($rrules,$currTime){
+		$times = array();
+
+		$BYMONTHs = isset($rrules['BYMONTH'])?explode(',',$rrules['BYMONTH']):array(null);
+		$BYWEEKNOs = isset($rrules['BYWEEKNO'])?explode(',',$rrules['BYWEEKNO']):array(null);
+		$BYYEARDAYs = isset($rrules['BYYEARDAY'])?explode(',',$rrules['BYYEARDAY']):array(null);
+		$BYMONTHDAYs = isset($rrules['BYMONTHDAY'])?explode(',',$rrules['BYMONTHDAY']):array(null);
+		$BYDAYs = isset($rrules['BYDAY'])?explode(',',$rrules['BYDAY']):array(null);
+		$BYHOURs = isset($rrules['BYHOUR'])?explode(',',$rrules['BYHOUR']):array(null);
+		$BYMINUTEs = isset($rrules['BYMINUTE'])?explode(',',$rrules['BYMINUTE']):array(null);
+		$BYSECONDs = isset($rrules['BYSECOND'])?explode(',',$rrules['BYSECOND']):array(null);
+		$BYSETPOSs = isset($rrules['BYSETPOS'])?explode(',',$rrules['BYSETPOS']):array(null);
+		// print_r($rrules);
+		foreach ($BYMONTHs as $BYMONTH) {
+			foreach ($BYWEEKNOs as $BYWEEKNO) {
+				foreach ($BYYEARDAYs as $BYYEARDAY) {
+					foreach ($BYDAYs as $BYDAY) {
+						foreach ($BYHOURs as $BYHOUR) {
+							foreach ($BYMINUTEs as $BYMINUTE) {
+								foreach ($BYSECONDs as $BYSECOND) {
+									foreach ($BYSETPOSs as $BYSETPOS) {
+										$time = $this->calcurateRrulesByBys($currTime,$BYMONTH,$BYWEEKNO,$BYYEARDAY,$BYDAY,$BYHOUR,$BYMINUTE,$BYSECOND,$BYSETPOS);
+										$times[]=$time;
+									}
+								}
+							}
+						}
 					}
 				}
-			}else if($until != null){
-
 			}
 		}
+		return $times;
+	}
+	//전체다 지원하는건 아니다.
+	private function calcurateRrules($rrules,$currTime){
+		// recur-rule-part = ( "FREQ" "=" freq )
+    //                    / ( "UNTIL" "=" enddate )
+    //                    / ( "COUNT" "=" 1*DIGIT )
+    //                    / ( "INTERVAL" "=" 1*DIGIT )
+    //                    / ( "BYSECOND" "=" byseclist )
+    //                    / ( "BYMINUTE" "=" byminlist )
+    //                    / ( "BYHOUR" "=" byhrlist )
+    //                    / ( "BYDAY" "=" bywdaylist )
+    //                    / ( "BYMONTHDAY" "=" bymodaylist )
+    //                    / ( "BYYEARDAY" "=" byyrdaylist )
+    //                    / ( "BYWEEKNO" "=" bywknolist )
+    //                    / ( "BYMONTH" "=" bymolist )
+    //                    / ( "BYSETPOS" "=" bysplist )
+    //                    / ( "WKST" "=" weekday )
+		$times = array();
+		// print_r($rrules);
+		$FREQ = $rrules['FREQ'];
+		$COUNT = isset($rrules['COUNT'])?(int)$rrules['COUNT']:null;
+		$UNTIL = isset($rrules['UNTIL'])?strtitime($rrules['UNTIL']):null;
+		if($COUNT != null){
+			for($i=0,$m=$COUNT;$i<$m;$i++){
+				if($FREQ =='YEARLY'){
+					$currTime = strtotime("+1 year", $currTime);
+				}else if($FREQ =='MONTHLY'){
+					$currTime = strtotime("+1 month", $currTime);
+				}else if($FREQ =='WEEKLY'){
+					$currTime = strtotime("+1 week", $currTime);
+				}
+				$rtimes = $this->calcurateRrulesByRrules($rrules,$currTime);
+				// print_r($rtimes);
+				$currTime = $rtimes[0];
+				$times = array_merge($times,$rtimes);
+			}
+		}
+		return $times;
 	}
 	private function generateTimes(& $links){
 		$times = array();
@@ -170,8 +279,7 @@ class ICalendarReader{
 		}
 		return $this->searchByUnixtime($timeST,$timeED);
 	}
-	public function searchByUnixtime($timeST,$timeED)
-	{
+	public function searchByUnixtime($timeST,$timeED){
 		if($this->debug){
 			echo "[debug] {$timeST} ~ {$timeED}\n";
 			echo '[debug] '.date('Y-m-d H:i:s',$timeST).' ~ '.date('Y-m-d H:i:s',$timeED)."\n";
