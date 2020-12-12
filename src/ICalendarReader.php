@@ -345,9 +345,6 @@ class ICalendarReader{
 			'links'=>$this->links
 		);
 	}
-	public function toJsonAll($flags = 0,$depth = 512){
-		return json_encode($this->toObjectAll(),$flags,$depth);
-	}
 	public function toObject(){
 		$VCALENDAR = $this->VCALENDAR;
 		$links = $this->links;
@@ -355,9 +352,6 @@ class ICalendarReader{
 			'VCALENDAR'=>$this->VCALENDAR,
 			'VEVENTs'=>$this->VEVENTs
 		);
-	}
-	public function toJson($flags = 0,$depth = 512){
-		return json_encode($this->toObject(),$flags,$depth);
 	}
 	public function toIcs(){
 		$res = array();
