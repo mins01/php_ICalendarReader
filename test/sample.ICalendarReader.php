@@ -27,11 +27,11 @@ echo "-------------------\n";
 echo "search: 2022-01-01\n";
 $rs = $icr->searchByDate('2022-01-01');
 foreach ($rs as $r) {
-	echo date('Y-m-d D / o-\WW',$r['time']).': '.$r['VEVENT']['SUMMARY']."\n";
+	echo $r['date'].' '.date('D / o-\WW',$r['time']).': '.$r['VEVENT']['SUMMARY']."\n";
 }
 echo "-------------------\n";
 echo "search: 2022-01-01 ~ 2022-12-31\n";
 $rs = $icr->searchByDate('2022-01-01','2022-12-31');
 foreach ($rs as $r) {
-	echo date('Y-m-d D / o-\WW',$r['time']).': '.$r['VEVENT']['SUMMARY']."\n";
+	echo $r['date'].' '.date('D / o-\WW',$r['time']).': '.$r['VEVENT']['SUMMARY']."\n";
 }
