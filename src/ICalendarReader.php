@@ -317,7 +317,11 @@ class ICalendarReader{
 		}else{
 			$timeED = strtotime(date('Y-m-d 23:59:59',$timeST));
 		}
-		return $this->searchByUnixtime($timeST,$timeED);
+		$rs = $this->searchByUnixtime($timeST,$timeED);
+		foreach ($rs as & $r) {
+			$r['date'] = date('Y-m-d',$r['time']);
+		}
+		return $rs;
 	}
 	public function searchByUnixtime($timeST,$timeED){
 		if($this->debug){
