@@ -392,16 +392,12 @@ class ICalendarReader{
 		return $res;
 	}
 	public function toObjectAll(){
-		$VCALENDAR = $this->VCALENDAR;
-		$links = $this->links;
 		return array(
 			'VCALENDAR'=>$this->VCALENDAR,
 			'links'=>$this->links
 		);
 	}
 	public function toObject(){
-		$VCALENDAR = $this->VCALENDAR;
-		$links = $this->links;
 		return array(
 			'VCALENDAR'=>$this->VCALENDAR,
 			'VEVENTs'=>$this->VEVENTs
